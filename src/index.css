@@ -1,0 +1,102 @@
+@import "tailwindcss";
+
+:root {
+  font-family: -apple-system, BlinkMacSystemFont, "Pretendard Variable", Pretendard, "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  color-scheme: light;
+}
+
+/* Ensure Leaflet container fills 100% and tiles render properly */
+.leaflet-container {
+  width: 100% !important;
+  height: 100% !important;
+  background-color: #f8fafc !important;
+  font-family: inherit !important;
+  outline: none;
+}
+
+.leaflet-tile-pane {
+  opacity: 1 !important;
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Leaflet Map pin animations and custom styling */
+.custom-pin {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.25));
+}
+
+.custom-pin:hover {
+  transform: scale(1.1) translateY(-2px);
+  z-index: 9999 !important;
+}
+
+.custom-pin.selected {
+  transform: scale(1.15) translateY(-4px);
+  z-index: 10000 !important;
+}
+
+.pulse-ring {
+  position: absolute;
+  top: -4px;
+  left: -4px;
+  right: -4px;
+  bottom: -4px;
+  border-radius: 9999px;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.6);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(34, 197, 94, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0);
+  }
+}
+
+.pulse-ring-danger {
+  animation: pulseDanger 2s infinite;
+}
+
+@keyframes pulseDanger {
+  0% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.6);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(239, 68, 68, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+  }
+}
+
+/* Resizer handle cursor & effect */
+.resizer-divider {
+  transition: background-color 0.15s ease;
+}
+
+.resizer-divider:hover,
+.resizer-divider.dragging {
+  background-color: #3b82f6 !important;
+}
