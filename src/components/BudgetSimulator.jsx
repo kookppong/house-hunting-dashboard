@@ -29,7 +29,8 @@ import {
   Navigation,
   KeyRound,
   CalendarCheck,
-  CheckCircle
+  CheckCircle,
+  ExternalLink
 } from 'lucide-react';
 import FloorPlanModal from './FloorPlanModal';
 
@@ -74,7 +75,6 @@ export default function BudgetSimulator({
     const minJeonse = filteredListings.length > 0 ? Math.min(...filteredListings.map(l => l.price)) : jeonseBasePrice;
     activePrice = selectedListing ? selectedListing.price : (viewMode === 'listing' ? minJeonse : jeonseBasePrice);
   } else {
-    // Rent
     activePrice = selectedListing ? selectedListing.price : rentBaseInfo.deposit;
   }
 
@@ -93,7 +93,6 @@ export default function BudgetSimulator({
   }
 
   // 2. Loan & Capital Calculation
-  // Mortgage Loan (매매) vs Jeonse Loan (전세대출 - 05 요구사항)
   let loanPrincipalManwon = 0;
   let monthlyRepaymentWon = 0;
   let totalAvailableCapital = 0;
@@ -104,20 +103,23 @@ export default function BudgetSimulator({
     monthlyRepaymentWon = calculateMonthlyPayment(loanPrincipalManwon, userBudget.interestRate, userBudget.loanTermYears);
     totalAvailableCapital = userBudget.cash + userBudget.jeonseReturn + userBudget.creditLoan + mortgageCap;
   } else if (tradeType === 'jeonse') {
-    // 전세대출: 보증금의 최대 80% 한도 (수도권 일반 시중은행 5억, HUG/HF 기준)
     const jeonseLoanCap = Math.round(activePrice * (userBudget.jeonseLoanRate / 100));
     loanPrincipalManwon = jeonseLoanCap + userBudget.creditLoan;
-    // 전세대출은 원금 균등상환이 아닌 '만기일시상환(매월 이자만 납부)'
     monthlyRepaymentWon = calculateMonthlyJeonseInterest(loanPrincipalManwon, userBudget.jeonseInterestRate);
     totalAvailableCapital = userBudget.cash + userBudget.jeonseReturn + userBudget.creditLoan + jeonseLoanCap;
   } else {
-    // 월세
     totalAvailableCapital = userBudget.cash + userBudget.jeonseReturn;
-    monthlyRepaymentWon = (rentBaseInfo.rent * 10000) + 250000; // 월세 + 관리비
+    monthlyRepaymentWon = (rentBaseInfo.rent * 10000) + 250000;
   }
 
   // Budget Evaluation
   const evaluation = getBudgetEvaluation(costs.totalRequiredBudgetManwon, totalAvailableCapital);
+
+  // Naver Land & Hogangnono dynamic search URLs
+  const encodedName = encodeURIComponent(selectedApartment.name);
+  const naverSearchUrl = `https://new.land.naver.com/search?sk=${encodedName}`;
+  const hogangnonoSearchUrl = `https://hogangnono.com/search?q=${encodedName}`;
+  const asilSearchUrl = `https://asil.kr/`;
 
   return (
     <div className="h-full flex flex-col bg-slate-50 border-l border-slate-200 overflow-y-auto">
@@ -158,22 +160,33 @@ export default function BudgetSimulator({
           </div>
         </div>
 
-        {/* Tags & Floor Plan Action Button */}
-        <div className="flex flex-wrap items-center justify-between gap-1.5 mt-2.5">
-          <div className="flex flex-wrap gap-1.5">
-            {selectedApartment.tags.map((tag, idx) => (
-              <span key={idx} className="text-[10px] font-medium bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full border border-emerald-200/60">
-                #{tag}
-              </span>
-            ))}
-          </div>
-          {/* Floor Plan View Button (06 요구사항) */}
+        {/* Live Portal Shortcuts (네이버부동산 & 호갱노노 원클릭 연동) */}
+        <div className="mt-2.5 flex items-center gap-2">
+          <a
+            href={naverSearchUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1 rounded-lg border border-emerald-200 transition"
+          >
+            <span>🟢 네이버부동산 실시간 매물</span>
+            <ExternalLink className="w-3 h-3" />
+          </a>
+          <a
+            href={hogangnonoSearchUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1 text-[11px] font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 px-2.5 py-1 rounded-lg border border-blue-200 transition"
+          >
+            <span>🔵 호갱노노 실거래 차트</span>
+            <ExternalLink className="w-3 h-3" />
+          </a>
+          {/* Floor Plan Button */}
           <button
             onClick={() => setIsFloorPlanOpen(true)}
-            className="px-2.5 py-1 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-bold flex items-center gap-1 shadow-sm transition"
+            className="ml-auto px-2.5 py-1 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-bold flex items-center gap-1 shadow-sm transition"
           >
             <Maximize2 className="w-3.5 h-3.5 text-emerald-400" />
-            <span>📐 평면도 보기</span>
+            <span>📐 평면도 팝업</span>
           </button>
         </div>
 
@@ -284,10 +297,9 @@ export default function BudgetSimulator({
 
       {/* 4. Tab Contents */}
       <div className="p-4 sm:p-5 flex-1 space-y-4">
-        {/* TAB 1: 내 예산 구성 & 대출 (매매 주담대 or 전세대출) */}
+        {/* TAB 1: 내 예산 구성 & 대출 */}
         {activeTab === 'budget' && (
           <div className="space-y-4">
-            {/* Total Available Capital Summary Card */}
             <div className="bg-gradient-to-br from-slate-900 to-slate-800 text-white p-4 rounded-xl shadow-md">
               <div className="text-xs text-slate-400 flex items-center justify-between">
                 <span>현재 나의 총 가용 자금</span>
@@ -312,7 +324,6 @@ export default function BudgetSimulator({
               </div>
             </div>
 
-            {/* User Cash & Equity */}
             <div className="bg-white p-4 rounded-xl border border-slate-200 space-y-3.5">
               <h4 className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
                 <PiggyBank className="w-4 h-4 text-emerald-600" />
@@ -352,7 +363,6 @@ export default function BudgetSimulator({
               </div>
             </div>
 
-            {/* Loan Simulator (전세대출 vs 매매 주담대 - 05 요구사항) */}
             <div className="bg-white p-4 rounded-xl border border-slate-200 space-y-3.5">
               <h4 className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
                 <Landmark className="w-4 h-4 text-blue-600" />
@@ -360,7 +370,6 @@ export default function BudgetSimulator({
               </h4>
 
               {tradeType === 'jeonse' ? (
-                /* 전세대출 설정 */
                 <div className="space-y-3">
                   <div>
                     <div className="flex justify-between text-xs text-slate-700 font-medium mb-1">
@@ -411,7 +420,6 @@ export default function BudgetSimulator({
                   </div>
                 </div>
               ) : (
-                /* 매매 주담대 설정 */
                 <div className="space-y-3">
                   <div>
                     <div className="flex justify-between text-xs text-slate-700 font-medium mb-1">
@@ -538,10 +546,10 @@ export default function BudgetSimulator({
           </div>
         )}
 
-        {/* TAB 3: 단지 스펙 (06 요구사항: 평면도, 주차, 전기차, 언덕, 편의시설, 2026매물) */}
+        {/* TAB 3: 단지 스펙 (평면도, 주차, 전기차, 언덕, 편의시설, 2026매물) */}
         {activeTab === 'specs' && (
           <div className="space-y-4 text-xs">
-            {/* 1. Distance to My Custom Pins (07 요구사항 연계) */}
+            {/* Distance to My Custom Pins */}
             {customPins.length > 0 && (
               <div className="bg-blue-50/80 p-3.5 rounded-xl border border-blue-200">
                 <h4 className="font-bold text-blue-900 mb-2 flex items-center gap-1.5">
@@ -566,7 +574,7 @@ export default function BudgetSimulator({
               </div>
             )}
 
-            {/* 2. Complex Specs & Parking / Terrain (06 요구사항) */}
+            {/* Complex Specs & Parking / Terrain */}
             <div className="bg-white p-4 rounded-xl border border-slate-200 space-y-2.5">
               <h4 className="font-bold text-slate-900 flex items-center justify-between">
                 <span>단지 기본 정보 및 시설</span>
@@ -601,7 +609,7 @@ export default function BudgetSimulator({
               </div>
             </div>
 
-            {/* 3. Living Infrastructure Radius (편의점, 올리브영, 다이소, 지하철) */}
+            {/* Living Infrastructure Radius */}
             <div className="bg-white p-4 rounded-xl border border-slate-200">
               <h4 className="font-bold text-slate-900 mb-2 flex items-center gap-1.5">
                 <Store className="w-4 h-4 text-emerald-600" />
@@ -627,7 +635,7 @@ export default function BudgetSimulator({
               </div>
             </div>
 
-            {/* 4. Active Listings Inventory & Items (2026 확인 날짜 - 06 요구사항) */}
+            {/* Active Listings Inventory & Items */}
             <div className="space-y-2.5">
               <div className="flex items-center justify-between">
                 <h4 className="font-bold text-slate-900">
@@ -683,7 +691,7 @@ export default function BudgetSimulator({
         )}
       </div>
 
-      {/* Floor Plan Blueprint Modal */}
+      {/* Floor Plan Blueprint Modal (Portal top-level) */}
       <FloorPlanModal
         apartment={selectedApartment}
         isOpen={isFloorPlanOpen}

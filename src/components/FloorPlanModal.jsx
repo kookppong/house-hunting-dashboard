@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { X, Maximize2, Compass, Home, Layers, CheckCircle } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { X, Compass, Home, Layers, CheckCircle } from 'lucide-react';
 
 export default function FloorPlanModal({ apartment, isOpen, onClose }) {
   const [selectedPlanIdx, setSelectedPlanIdx] = useState(0);
@@ -21,12 +22,18 @@ export default function FloorPlanModal({ apartment, isOpen, onClose }) {
 
   const currentPlan = floorPlans[selectedPlanIdx] || floorPlans[0];
 
-  return (
-    <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-slate-950/70 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
+  const modalContent = (
+    <div 
+      className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in duration-200"
+      onClick={onClose}
+    >
+      <div 
+        className="bg-white rounded-2xl shadow-2xl border border-slate-300 w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden relative z-[100000]"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Modal Header */}
         <div className="p-4 sm:px-6 bg-slate-900 text-white flex items-center justify-between">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold">
               <Home className="w-4 h-4" />
             </div>
@@ -87,7 +94,7 @@ export default function FloorPlanModal({ apartment, isOpen, onClose }) {
               
               {/* Front Balcony (South) */}
               <rect x="30" y="320" width="540" height="50" fill="#f1f5f9" stroke="#94a3b8" strokeWidth="2" strokeDasharray="4 2" />
-              <text x="300" y="350" textAnchor="middle" fill="#64748b" fontSize="12" fontWeight="bold">발코니 1 (남향 테라스 및 화단)</text>
+              <text x="300" y="350" textAnchor="middle" fill="#64748b" fontSize="12" fontWeight="bold">발코니 1 (남향 테라스 및 광폭 서비스면적)</text>
 
               {/* Back Balcony (North) */}
               <rect x="30" y="30" width="220" height="40" fill="#f1f5f9" stroke="#94a3b8" strokeWidth="2" strokeDasharray="4 2" />
@@ -104,12 +111,12 @@ export default function FloorPlanModal({ apartment, isOpen, onClose }) {
               <rect x="120" y="70" width="80" height="90" fill="#e0f2fe" stroke="#475569" strokeWidth="2" />
               <text x="160" y="115" textAnchor="middle" fill="#0369a1" fontSize="11" fontWeight="bold">부부욕실</text>
 
-              {/* Living Room (거실 - Center South) */}
+              {/* Living Room (거실) */}
               <rect x="200" y="160" width="210" height="160" fill="#ffffff" stroke="#475569" strokeWidth="3" />
               <text x="305" y="235" textAnchor="middle" fill="#0f172a" fontSize="16" fontWeight="900">거 실</text>
               <text x="305" y="255" textAnchor="middle" fill="#64748b" fontSize="11">4.5m × 4.8m (우물천장)</text>
 
-              {/* Kitchen & Dining (주방/식당 - Center North) */}
+              {/* Kitchen & Dining */}
               <rect x="250" y="30" width="160" height="130" fill="#ffffff" stroke="#475569" strokeWidth="3" />
               <text x="330" y="90" textAnchor="middle" fill="#0f172a" fontSize="14" fontWeight="bold">주방 / 식당</text>
               <rect x="260" y="40" width="80" height="20" fill="#cbd5e1" stroke="#64748b" strokeWidth="1" />
@@ -117,17 +124,17 @@ export default function FloorPlanModal({ apartment, isOpen, onClose }) {
               <rect x="350" y="40" width="50" height="20" fill="#cbd5e1" stroke="#64748b" strokeWidth="1" />
               <text x="375" y="55" textAnchor="middle" fill="#334155" fontSize="10">냉장고장</text>
 
-              {/* Bedroom 2 (침실 2) */}
+              {/* Bedroom 2 */}
               <rect x="410" y="180" width="160" height="140" fill="#ffffff" stroke="#475569" strokeWidth="3" />
               <text x="490" y="245" textAnchor="middle" fill="#0f172a" fontSize="13" fontWeight="bold">침실 2</text>
               <text x="490" y="265" textAnchor="middle" fill="#64748b" fontSize="11">3.0m × 3.3m</text>
 
-              {/* Bedroom 3 (침실 3) */}
+              {/* Bedroom 3 */}
               <rect x="410" y="30" width="160" height="110" fill="#ffffff" stroke="#475569" strokeWidth="3" />
               <text x="490" y="80" textAnchor="middle" fill="#0f172a" fontSize="13" fontWeight="bold">침실 3</text>
               <text x="490" y="100" textAnchor="middle" fill="#64748b" fontSize="11">붙박이장 기본</text>
 
-              {/* Common Bath & Entrance (공용욕실 & 현관) */}
+              {/* Common Bath & Entrance */}
               <rect x="200" y="70" width="50" height="90" fill="#e0f2fe" stroke="#475569" strokeWidth="2" />
               <text x="225" y="120" textAnchor="middle" fill="#0369a1" fontSize="10" fontWeight="bold">공용욕실</text>
               <rect x="410" y="140" width="50" height="40" fill="#fef3c7" stroke="#475569" strokeWidth="2" />
@@ -181,7 +188,7 @@ export default function FloorPlanModal({ apartment, isOpen, onClose }) {
               <div className="space-y-1.5 text-slate-600">
                 <p>🚗 <strong>주차:</strong> {apartment.parkingTotal ? `총 ${apartment.parkingTotal.toLocaleString()}대 (세대당 ${apartment.parkingPerHousehold}대)` : `세대당 ${apartment.parkingPerHousehold}대`}</p>
                 <p>⚡ <strong>전기차 충전:</strong> {apartment.evChargers || "충전기 완비"}</p>
-                <p>🏢 <strong>지하주차장 직결:</strong> {apartment.undergroundParkingDirect ? "지상 차 없는 단지 (엘리베이터 직통 연결)" : "지상/지하 혼합 주차"}</p>
+                <p>🏢 <strong>지하주차장 직결:</strong> {apartment.undergroundParkingDirect ? "전동 엘리베이터 직통 연결 (O)" : "지상/지하 혼합"}</p>
                 <p>⛰️ <strong>단지 지형:</strong> {apartment.slopeStatus || "평지 단지"}</p>
               </div>
             </div>
@@ -211,4 +218,6 @@ export default function FloorPlanModal({ apartment, isOpen, onClose }) {
       </div>
     </div>
   );
+
+  return createPortal(modalContent, document.body);
 }

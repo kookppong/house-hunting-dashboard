@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { MapPin, Briefcase, Home, GraduationCap, Star, Plus, Trash2, X, Crosshair } from 'lucide-react';
 
 export const PIN_TYPES = {
@@ -19,7 +20,7 @@ export const PRESET_PINS = [
 
 // Haversine distance calculator in KM
 export function calculateDistanceKm(lat1, lon1, lat2, lon2) {
-  const R = 6371; // Earth radius in km
+  const R = 6371;
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
   const dLon = ((lon2 - lon1) * Math.PI) / 180;
   const a =
@@ -50,9 +51,6 @@ export default function CustomPinManager({
   isOpen,
   onClose
 }) {
-  const [newPinName, setNewPinName] = useState('');
-  const [newPinType, setNewPinType] = useState('company');
-
   if (!isOpen) return null;
 
   const handleAddPreset = (preset) => {
@@ -65,9 +63,15 @@ export default function CustomPinManager({
     });
   };
 
-  return (
-    <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-slate-950/70 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden">
+  const modalContent = (
+    <div 
+      className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in duration-200"
+      onClick={onClose}
+    >
+      <div 
+        className="bg-white rounded-2xl shadow-2xl border border-slate-300 w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden relative z-[100000]"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
         <div className="p-4 bg-slate-900 text-white flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -175,4 +179,6 @@ export default function CustomPinManager({
       </div>
     </div>
   );
+
+  return createPortal(modalContent, document.body);
 }
