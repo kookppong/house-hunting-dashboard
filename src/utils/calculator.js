@@ -1,7 +1,7 @@
-// Price formatting and real estate financial calculations
+// Price formatting and real estate financial calculations (매매, 전세, 월세 통합)
 
 /**
- * Format 만원 to readable Korean currency (e.g. 185000 -> "18억 5,000만원")
+ * Format 만원 to readable Korean currency (e.g. 185000 -> "18억 5,000만원", 72000 -> "7억 2,000만원")
  */
 export function formatPrice(manwon) {
   if (!manwon || isNaN(manwon)) return "0원";
@@ -27,7 +27,7 @@ export function formatCompactPrice(manwon) {
 }
 
 /**
- * Calculate Acquisition Costs (취득세, 중개보수, 채권할인/등기비, 예비비)
+ * Calculate Sale Acquisition Costs (취득세, 중개보수, 채권할인/등기비, 예비비)
  */
 export function calculateAcquisitionCosts(priceManwon, areaPyeong = 34, movingBudget = 1500) {
   const priceWon = priceManwon * 10000;
@@ -35,17 +35,15 @@ export function calculateAcquisitionCosts(priceManwon, areaPyeong = 34, movingBu
   // 1. 취득세 (1주택 기준 실거래가별)
   let acquisitionTaxRate = 0.011; // 6억 이하: 1.1%
   if (priceWon > 600000000 && priceWon <= 900000000) {
-    // 6억~9억 누진: (가격/1억 * 2/3 - 3)% * 1.1
     const pEok = priceWon / 100000000;
     const baseRate = (pEok * (2 / 3) - 3) / 100;
     acquisitionTaxRate = baseRate * 1.1;
   } else if (priceWon > 900000000) {
-    // 9억 초과 (전용 85㎡ 이하 3.3%, 초과 3.5%)
     acquisitionTaxRate = areaPyeong > 34 ? 0.035 : 0.033;
   }
   const acquisitionTaxManwon = Math.round((priceWon * acquisitionTaxRate) / 10000);
 
-  // 2. 중개보수 (복비 상한요율 적용 + 부가세 10%)
+  // 2. 중개보수 (상한요율 적용 + 부가세 10%)
   let brokerRate = 0.004;
   if (priceWon >= 900000000 && priceWon < 1200000000) {
     brokerRate = 0.005;
@@ -79,7 +77,35 @@ export function calculateAcquisitionCosts(priceManwon, areaPyeong = 34, movingBu
 }
 
 /**
- * Monthly loan repayment (원리금균등상환)
+ * Calculate Jeonse Acquisition & Loan Costs (전세보증금, 전세중개료, 전세보증보험료, 전세대출이자)
+ */
+export function calculateJeonseCosts(jeonsePriceManwon, movingBudget = 300) {
+  const priceWon = jeonsePriceManwon * 10000;
+
+  // 전세 중개수수료 (상한요율 + VAT 10%)
+  let brokerRate = 0.003; // 1억~6억 0.3%, 6억 이상 0.4%
+  if (priceWon >= 600000000) brokerRate = 0.004;
+  const brokerageFeeManwon = Math.round((priceWon * brokerRate * 1.1) / 10000);
+
+  // HUG 전세보증금 반환보증보험료 (연 약 0.128%, 2년치 약 0.25%)
+  const guaranteeInsuranceManwon = Math.round(jeonsePriceManwon * 0.0025);
+
+  const totalAdditionalCostManwon = brokerageFeeManwon + guaranteeInsuranceManwon + movingBudget;
+  const totalRequiredBudgetManwon = jeonsePriceManwon + totalAdditionalCostManwon;
+
+  return {
+    jeonsePriceManwon,
+    brokerageFeeManwon,
+    brokerRate: (brokerRate * 100).toFixed(1),
+    guaranteeInsuranceManwon,
+    movingBudget,
+    totalAdditionalCostManwon,
+    totalRequiredBudgetManwon
+  };
+}
+
+/**
+ * Monthly loan repayment (원리금균등분할상환 - 매매 주담대)
  */
 export function calculateMonthlyPayment(principalManwon, annualInterestRate = 3.8, termYears = 30) {
   if (principalManwon <= 0) return 0;
@@ -88,6 +114,16 @@ export function calculateMonthlyPayment(principalManwon, annualInterestRate = 3.
   const n = termYears * 12;
   const monthly = (P * r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1);
   return Math.round(monthly); // in won
+}
+
+/**
+ * Monthly interest only (만기일시상환 - 전세자금대출)
+ */
+export function calculateMonthlyJeonseInterest(principalManwon, annualInterestRate = 3.5) {
+  if (principalManwon <= 0) return 0;
+  const P = principalManwon * 10000;
+  const r = (annualInterestRate / 100) / 12;
+  return Math.round(P * r); // in won
 }
 
 /**
@@ -105,7 +141,7 @@ export function getBudgetEvaluation(totalRequiredBudgetManwon, totalAvailableCap
       color: "#16a34a",
       badgeClass: "bg-emerald-50 text-emerald-700 border-emerald-300",
       barClass: "bg-emerald-500",
-      label: "예산 내 구매 가능",
+      label: "예산 내 안전 도달",
       message: `가용 예산이 ${formatPrice(diff)} 여유롭습니다!`,
       diff,
       matchRatio
