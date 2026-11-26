@@ -2,13 +2,13 @@ import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react'
 import Header from './components/Header';
 import MapView from './components/MapView';
 import BudgetSimulator from './components/BudgetSimulator';
-import CustomPinManager, { PRESET_PINS } from './components/CustomPinManager';
+import CustomPinManager from './components/CustomPinManager';
 import { APARTMENT_DATA } from './data/apartmentsData';
 import { GripVertical } from 'lucide-react';
 
 export default function App() {
-  // Trade Type (02 요구사항: 매매 / 전세 / 월세)
-  const [tradeType, setTradeType] = useState('sale'); // 'sale' | 'jeonse' | 'rent'
+  // Trade Type (매매 / 전세 / 월세)
+  const [tradeType, setTradeType] = useState('sale');
 
   // View Mode: 'recent' | 'listing' | 'both'
   const [viewMode, setViewMode] = useState('both');
@@ -22,19 +22,21 @@ export default function App() {
     households: 'all'
   });
 
+  // Current Viewport Bounds Filter ("현 지도 영역에서 검색" 기능)
+  const [currentBounds, setCurrentBounds] = useState(null);
+
   // Selected Complex & Listing State
-  const [selectedApartmentId, setSelectedApartmentId] = useState('apt-4'); // Default: 마포래미안푸르지오
+  const [selectedApartmentId, setSelectedApartmentId] = useState('apt-gn-1');
   const [selectedListing, setSelectedListing] = useState(null);
 
-  // User Custom Pins State (07 요구사항: 집, 회사 위치 핀 여러개)
+  // User Custom Pins State (다중 거점 핀)
   const [customPins, setCustomPins] = useState([
     { id: 'pin-1', name: '강남역 테헤란로 (회사)', type: 'company', lat: 37.4979, lng: 127.0276 },
     { id: 'pin-2', name: '판교 테크노밸리 (연구소)', type: 'company', lat: 37.3948, lng: 127.1112 }
   ]);
   const [isPinManagerOpen, setIsPinManagerOpen] = useState(false);
-  const [isDroppingPin, setIsDroppingPin] = useState(false);
 
-  // Landmarks Toggle (08 요구사항: 대형몰, 백화점, 병원, 경찰서, 공원)
+  // Landmarks Toggle
   const [showLandmarks, setShowLandmarks] = useState(true);
 
   // Financial Profile State (in 만원)
@@ -45,7 +47,7 @@ export default function App() {
     ltvRate: 50,              // 주담대 LTV 50%
     interestRate: 3.8,        // 주담대 금리 3.8%
     loanTermYears: 30,        // 30년 만기
-    jeonseLoanRate: 70,       // 전세대출 70% (05 요구사항)
+    jeonseLoanRate: 70,       // 전세대출 70%
     jeonseInterestRate: 3.5,  // 전세대출 금리 3.5%
     movingCost: 1500          // 이사/인테리어 1,500만원
   });
@@ -95,7 +97,7 @@ export default function App() {
     return APARTMENT_DATA.find(apt => apt.id === selectedApartmentId) || APARTMENT_DATA[0];
   }, [selectedApartmentId]);
 
-  // User Total Budget calculation (매매 vs 전세 반영)
+  // User Total Budget calculation
   const userTotalBudgetManwon = useMemo(() => {
     let loan = 0;
     if (tradeType === 'sale') {
@@ -108,10 +110,17 @@ export default function App() {
     return userBudget.cash + userBudget.jeonseReturn + userBudget.creditLoan + loan;
   }, [userBudget, selectedApartment, selectedListing, tradeType]);
 
-  // Filter Apartments List
+  // Filter Apartments List (incorporating Bounds search + Keyword + Dropdowns)
   const filteredApartments = useMemo(() => {
     return APARTMENT_DATA.filter(apt => {
-      // 1. Keyword search
+      // 1. Current Map Bounds Filter (현 지도 영역에서 검색)
+      if (currentBounds) {
+        if (!currentBounds.contains([apt.lat, apt.lng])) {
+          return false;
+        }
+      }
+
+      // 2. Keyword search
       if (filters.keyword.trim()) {
         const kw = filters.keyword.toLowerCase().trim();
         const matchesName = apt.name.toLowerCase().includes(kw);
@@ -123,20 +132,20 @@ export default function App() {
         }
       }
 
-      // 2. Price Range (based on recent transaction or jeonse)
+      // 3. Price Range
       const price = tradeType === 'jeonse' ? (apt.jeonsePrice || 80000) : apt.recentTransaction.price;
       if (filters.priceRange === 'under10' && price > 100000) return false;
       if (filters.priceRange === '10to15' && (price < 100000 || price > 150000)) return false;
       if (filters.priceRange === '15to20' && (price < 150000 || price > 200000)) return false;
       if (filters.priceRange === 'over20' && price <= 200000) return false;
 
-      // 3. Built Year
+      // 4. Built Year
       const year = apt.builtYear;
       if (filters.builtYear === 'new5' && year < 2021) return false;
       if (filters.builtYear === 'under10' && year < 2016) return false;
       if (filters.builtYear === 'over20' && year > 2006) return false;
 
-      // 4. Households
+      // 5. Households
       if (filters.households !== 'all') {
         const minH = parseInt(filters.households, 10);
         if (apt.totalHouseholds < minH) return false;
@@ -144,7 +153,7 @@ export default function App() {
 
       return true;
     });
-  }, [filters, tradeType]);
+  }, [filters, tradeType, currentBounds]);
 
   // Apartment selection handler
   const handleSelectApartment = (apt) => {
@@ -163,6 +172,7 @@ export default function App() {
 
   // Quick Region Jump handler
   const handleJumpRegion = (lat, lng, zoom = 13) => {
+    setCurrentBounds(null); // Clear map bounds restriction on explicit region jump
     const aptInRegion = APARTMENT_DATA.find(a => 
       Math.abs(a.lat - lat) < 0.05 && Math.abs(a.lng - lng) < 0.05
     );
@@ -171,9 +181,15 @@ export default function App() {
     }
   };
 
+  // Reset filters handler
+  const handleResetFilters = () => {
+    setCurrentBounds(null);
+    setFilters({ keyword: '', region: 'all', priceRange: 'all', builtYear: 'all', households: 'all' });
+  };
+
   return (
     <div className="flex flex-col h-screen w-screen overflow-hidden bg-slate-900 select-none">
-      {/* Top Header & Filters (02 매매/전월세 탭, 03 빠른이동 구 추가, 07/08 토글 포함) */}
+      {/* Top Header & Filters */}
       <Header
         filters={filters}
         setFilters={setFilters}
@@ -183,13 +199,13 @@ export default function App() {
         setTradeType={setTradeType}
         totalCount={APARTMENT_DATA.length}
         filteredCount={filteredApartments.length}
-        onResetFilters={() => setFilters({ keyword: '', region: 'all', priceRange: 'all', builtYear: 'all', households: 'all' })}
+        onResetFilters={handleResetFilters}
         onJumpRegion={handleJumpRegion}
         customPinsCount={customPins.length}
         onOpenPinManager={() => setIsPinManagerOpen(true)}
         showLandmarks={showLandmarks}
         setShowLandmarks={setShowLandmarks}
-        isDroppingPin={isDroppingPin}
+        isDroppingPin={false}
       />
 
       {/* Main Draggable Split Screen */}
@@ -197,13 +213,14 @@ export default function App() {
         ref={containerRef}
         className="flex-1 flex flex-col md:flex-row overflow-hidden relative"
       >
-        {/* Left Side: Map View (01 타일 수정, 04 수도권 한정, 07 거점핀, 08 랜드마크) */}
+        {/* Left Side: Map View (기본&심플 2종, 현 영역 검색 버튼, 100% 가림 없는 핀 찍기) */}
         <div 
           style={{ width: `${splitRatio}%` }}
           className="h-[50vh] md:h-full relative overflow-hidden transition-[width] duration-75"
         >
           <MapView
             apartments={filteredApartments}
+            allApartments={APARTMENT_DATA}
             selectedApartment={selectedApartment}
             onSelectApartment={handleSelectApartment}
             viewMode={viewMode}
@@ -212,9 +229,9 @@ export default function App() {
             splitRatio={splitRatio}
             customPins={customPins}
             onAddCustomPin={handleAddCustomPin}
-            isDroppingPin={isDroppingPin}
-            setIsDroppingPin={setIsDroppingPin}
+            onDeleteCustomPin={handleDeleteCustomPin}
             showLandmarks={showLandmarks}
+            onSearchInBounds={(bounds) => setCurrentBounds(bounds)}
           />
         </div>
 
@@ -223,7 +240,7 @@ export default function App() {
           onMouseDown={handleMouseDown}
           onDoubleClick={() => setSplitRatio(60)}
           title="좌우 드래그하여 비율 조절 (더블클릭시 6:4 리셋)"
-          className={`hidden md:flex w-2.5 items-center justify-center bg-slate-700/80 hover:bg-emerald-500 cursor-col-resize z-30 transition-colors resizer-divider relative ${
+          className={`hidden md:flex w-2.5 items-center justify-center bg-slate-700/80 hover:bg-emerald-500 cursor-col-resize z-20 transition-colors resizer-divider relative ${
             isDragging ? 'bg-emerald-500 ring-2 ring-emerald-400' : ''
           }`}
         >
@@ -231,7 +248,6 @@ export default function App() {
             <GripVertical className="w-3 h-3" />
           </div>
 
-          {/* Quick Preset Buttons */}
           <div className="absolute top-2 -translate-x-1/2 left-1/2 flex items-center gap-1 bg-slate-900/90 text-white text-[10px] px-2 py-0.5 rounded-full shadow-md border border-slate-700 opacity-0 hover:opacity-100 transition pointer-events-auto">
             <button onClick={() => setSplitRatio(50)} className="hover:text-emerald-400 font-bold px-1">5:5</button>
             <span className="text-slate-600">|</span>
@@ -241,7 +257,7 @@ export default function App() {
           </div>
         </div>
 
-        {/* Right Side: Budget & Detailed Specs (05 전세대출, 06 평면도/인프라/2026매물) */}
+        {/* Right Side: Budget & Detailed Specs */}
         <div 
           style={{ width: `${100 - splitRatio}%` }}
           className="h-[50vh] md:h-full relative z-10 shadow-xl overflow-hidden transition-[width] duration-75"
@@ -259,13 +275,13 @@ export default function App() {
         </div>
       </div>
 
-      {/* Custom Pin Manager Modal (07 요구사항) */}
+      {/* Custom Pin Manager Modal (Portal) */}
       <CustomPinManager
         customPins={customPins}
         onAddPin={handleAddCustomPin}
         onDeletePin={handleDeleteCustomPin}
-        isDroppingPin={isDroppingPin}
-        setIsDroppingPin={setIsDroppingPin}
+        isDroppingPin={false}
+        setIsDroppingPin={() => {}}
         isOpen={isPinManagerOpen}
         onClose={() => setIsPinManagerOpen(false)}
       />
